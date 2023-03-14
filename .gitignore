@@ -24,6 +24,9 @@ pip-wheel-metadata/
 share/python-wheels/
 *.egg-info/
 .installed.cfg
+/nltk_data
+/evaluation
+
 *.egg
 MANIFEST
 
@@ -127,3 +130,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+
+
+
+
+.DS_Store
