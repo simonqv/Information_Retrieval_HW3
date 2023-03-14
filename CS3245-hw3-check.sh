@@ -29,13 +29,14 @@ if unzip -B $zipfile -d evaluation/$studentNumber/; then
     then
         altpath=evaluation/$studentNumber
         echo -e "\t $path does not exist, re-attempting in $altpath"
+        echo -e "Your zip file does not contain a directory. Please re-zip to avoid penalties"
         path=$altpath
     fi
 
     # Checking for README.txt
     if [ -f $path/$README ]
     then
-        let "submittedFiles=submittedFiles+1"
+        submittedFiles=$((submittedFiles+1))
         echo -e "\t\t Found $README"
     else
         echo -e "\t\t Unable to find $studentNumber's $README"
@@ -44,7 +45,7 @@ if unzip -B $zipfile -d evaluation/$studentNumber/; then
     # Checking for dictionary.txt
     if [ -f $path/$DICTIONARY ]
     then
-        let "submittedFiles=submittedFiles+1"
+        submittedFiles=$((submittedFiles+1))
         echo -e "\t\t Found $DICTIONARY"
     else
         echo -e "\t\t Unable to find $studentNumber's $DICTIONARY"
@@ -53,7 +54,7 @@ if unzip -B $zipfile -d evaluation/$studentNumber/; then
     # Checking for postings.txt
     if [ -f $path/$POSTINGS ]
     then
-        let "submittedFiles=submittedFiles+1"
+        submittedFiles=$((submittedFiles+1))
         echo -e "\t\t Found $POSTINGS"
     else
         echo -e "\t\t Unable to find $studentNumber's $POSTINGS"
@@ -62,7 +63,7 @@ if unzip -B $zipfile -d evaluation/$studentNumber/; then
     # Checking if BUILD_file exists
     if [ -f $path/$BUILD_FILE ]
     then
-        let "submittedFiles=submittedFiles+1"
+        submittedFiles=$((submittedFiles+1))
         echo -e "\t\t Found $BUILD_FILE"
     else
         echo -e "\t\t Unable to find $studentNumber's $BUILD_FILE"
@@ -71,7 +72,7 @@ if unzip -B $zipfile -d evaluation/$studentNumber/; then
     #Checking if EVAL_file exists
     if [ -f $path/$EVAL_FILE ]
     then
-        let "submittedFiles=submittedFiles+1"
+        submittedFiles=$((submittedFiles+1))
         echo -e "\t\t Found $EVAL_FILE"
     else
         echo -e "\t\t Unable to find $studentNumber's $EVAL_FILE"
@@ -86,8 +87,12 @@ echo -e "Clean up completed!"
 
 echo -e ""
 echo -e "Number of files submitted = $submittedFiles/$REQUIRED_FILES"
-if [ "$submittedFiles" -eq "$REQUIRED_FILES" ]; then
-    echo -e "You have submitted all files.\nPlease proceed on to submit to LumiNUS."
-else
-    echo -e "You have not submitted all the required files.\nPlease double check the required missing files"
+if [ "$path" = "evaluation/$studentNumber/$studentNumber" ]; then
+    if [ "$submittedFiles" -eq "$REQUIRED_FILES" ]; then
+        echo -e "You have submitted all files.\nPlease proceed on to submit to Canvas."
+    else
+        echo -e "You have not submitted all the required files.\nPlease double check the required missing files"
+    fi
+else 
+    echo -e "Your zip file does not contain a directory. Please re-zip to avoid penalties"
 fi
