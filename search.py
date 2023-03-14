@@ -14,6 +14,7 @@ def usage():
 
 
 def searching(dictionary, postings, query, length_dict):
+    print("not done")
     # Göra length grejen.
     # Ge scores :P
 
