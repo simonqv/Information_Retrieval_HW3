@@ -1,1 +1,0 @@
-# Information_Retrieval_HW3
