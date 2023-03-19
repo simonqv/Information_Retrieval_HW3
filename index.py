@@ -24,8 +24,8 @@ def build_index(in_dir, out_dict, out_postings):
     # This is an empty method
     # Pls implement your code in below
     # path = "./nltk_data/corpora/reuters/first"
-    # path = in_dir
-    path = "./nltk_data/corpora/reuters/first"
+    path = in_dir
+    # path = "./nltk_data/corpora/reuters/first"
 
     dictionary = {}
     stemmer = PorterStemmer()
