@@ -18,12 +18,12 @@ def usage():
 def searching(dictionary, postings, query, document_lengths, collection_size):
     scores = cosine_score(dictionary, postings, query, document_lengths, collection_size)
     # Two cases. More than 10 docs or less than 10 docs
+
     sorted_dict = sorted(scores.items(), key=lambda x: x[1], reverse=True)
     if len(scores) < 10:
         largest_elements = [key for key, value in sorted_dict[:len(scores)]]
     else:
         largest_elements = [key for key, value in sorted_dict[:10]]
-
     return largest_elements
 
 
@@ -31,50 +31,55 @@ def find_docs(token, dictionary, postings):
     """
     Help function to index into the postings file.
     """
-    nr_docs, offset = dictionary[token]
-    postings.seek(offset)
-    return postings.readline()
+    try:
+        nr_docs, offset = dictionary[token]
+        postings.seek(offset)
+        line = postings.readline()
+        return line
+    except:
+        return " "
+
+
+def calc_wtq(term, query, df, N):
+    freq = query.count(term)
+    if freq == 0 or df == 0:
+        return 0
+    left = (1 + math.log(freq, 10))
+    right = math.log(N / df, 10)
+    return left * right if (freq > 0) else 0
 
 
 def cosine_score(dictionary, postings, query, document_lengths, collection_size):
     scores = {}
+    for i in range(len(query)):
+        query[i] = stemmer.stem(query[i].lower())
     q_terms = query
-    doc_weights = []
     for term in q_terms:
+        term = stemmer.stem(term).lower()
         docs = find_docs(term, dictionary, postings).split()
         df = document_freq(term, dictionary, postings)
-        print("COLL: ", collection_size)
-        print("DF:   ", df)
-        wtq = math.log(collection_size / df, 10)
-        print("WTQ:  ", wtq)
-        doc_weights.append(wtq)
+        idf = math.log(collection_size / df, 10) if (df > 0) else 0
+        wtq = calc_wtq(term, query, df, collection_size)
         for pair in docs:
             pair_elems = pair.split(",")
             doc = int(pair_elems[0])
-            D = document_lengths[doc]
-            tf = int(pair_elems[1])#  / D  # DELA MED # TERMS IN DOC
+            tf = int(pair_elems[1])
             if doc not in scores:
                 scores[doc] = 0
 
-            scores[doc] += tf_idf(tf, wtq)
-        sum_squares = 0
-        for w in doc_weights:
-
-            sum_squares += w ** 2
-        length = math.sqrt(sum_squares)
+            tf = (1 + math.log(tf, 10))
+            wtd = tf * idf if (tf > 0) else 0
+            scores[doc] += wtd * wtq
         for doc in scores:
-            scores[doc] = scores[doc] / length
-
+            scores[doc] = scores[doc] / document_lengths[doc]
     return scores
 
 
-def tf_idf(tf, wtq):
+def tf_idf(tf, idf):
     """
     Calculate the tf-idf
     """
-    print(tf, wtq)
-    print(math.log(tf, 10))
-    return (1 + math.log(tf, 10)) * wtq if (tf > 0) else 0
+    return tf * idf if (tf > 0) else 0
 
 
 def document_freq(term, dictionary, postings):

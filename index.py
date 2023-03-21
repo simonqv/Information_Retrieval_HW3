@@ -12,9 +12,6 @@ def usage():
     print("usage: " + sys.argv[0] + " -i directory-of-documents -d dictionary-file -p postings-file")
 
 
-ELEMENT_SIZE = 6
-
-
 def build_index(in_dir, out_dict, out_postings):
     """
     build index from documents stored in the input directory,
@@ -40,16 +37,23 @@ def build_index(in_dir, out_dict, out_postings):
                 file_name = int(entry.name)
                 lines = file.readlines()
                 length = 0
+                """ 
+                freq = query.count(term)
+                if freq == 0:
+                    return 0
+                left = (1 + math.log(freq,10))
+                return left*right if (freq > 0) else 0
+                """
+                terms = []
                 for line in lines:
                     length += len(line.split())
                     tokens = [word_tokenize(t) for t in sent_tokenize(line)]
                     if len(tokens) != 0:
                         for t in tokens[0]:
                             stemmed = stemmer.stem(t).lower()
-
+                            terms.append(stemmed)
                             # Add tokens to temporary postings list
                             if stemmed in dictionary:
-                                # print(list(list(zip(*postings_lists[stemmed]))[0]))
                                 if file_name in list(list(zip(*postings_lists[stemmed]))[0]):
                                     postings_lists[stemmed][list(list(zip(*postings_lists[stemmed]))[0]).index(file_name)][1] += 1
                                 else:
@@ -57,7 +61,13 @@ def build_index(in_dir, out_dict, out_postings):
                             elif stemmed not in dictionary:
                                 dictionary[stemmed] = 0
                                 postings_lists[stemmed] = [[file_name, 1]]
-                lengthdict[file_name] = length
+                terms_set = set(terms)
+                sq_len = 0
+                for t in terms_set:
+                    c = terms.count(t)
+                    sq_len += (1 + math.log(c, 10))**2
+
+                lengthdict[file_name] = math.sqrt(sq_len)
     # Handles errors if we can't find the file.
     except IOError:
         print("No such file in path:", path)
