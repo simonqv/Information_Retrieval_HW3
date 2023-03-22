@@ -16,20 +16,27 @@ def usage():
 
 
 def searching(dictionary, postings, query, document_lengths, collection_size):
+    """
+    Gets all scores, sorts them and output the top 10 (or less if less documents exists)
+    """
+    # Calculates all scores
     scores = cosine_score(dictionary, postings, query, document_lengths, collection_size)
-    # Two cases. More than 10 docs or less than 10 docs
 
-    sorted_dict = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    # Sort the output in descending order with regards to document score,
+    # if scores are identical sort with ascending order on document ID.
+    # Two cases. More than 10 docs or less than 10 docs
+    sorted_dict = sorted(scores.items(), key=lambda x: (-x[1], x[0]))
     if len(scores) < 10:
         largest_elements = [key for key, value in sorted_dict[:len(scores)]]
     else:
         largest_elements = [key for key, value in sorted_dict[:10]]
+
     return largest_elements
 
 
 def find_docs(token, dictionary, postings):
     """
-    Help function to index into the postings file.
+    Help function to index into the postings file. And fetch the documents and term frequencies.
     """
     try:
         nr_docs, offset = dictionary[token]
@@ -40,63 +47,44 @@ def find_docs(token, dictionary, postings):
         return " "
 
 
-def calc_wtq(term, query, df, N):
-    freq = query.count(term)
-    if freq == 0 or df == 0:
-        return 0
-    left = (1 + math.log(freq, 10))
-    right = math.log(N / df, 10)
-    return left * right if (freq > 0) else 0
-
-
 def cosine_score(dictionary, postings, query, document_lengths, collection_size):
+    """
+    Calculate the cosine_score following the pseudocode from lecture.
+    Returns: a dictionary containing the scores for the documents found for the query.
+    """
     scores = {}
+    query_term_freq = {}
+
+    # Perform stemming on query and count frequency of term in query
     for i in range(len(query)):
-        query[i] = stemmer.stem(query[i].lower())
-    q_terms = query
-    for term in q_terms:
-        term = stemmer.stem(term).lower()
-        docs = find_docs(term, dictionary, postings).split()
-        df = document_freq(term, dictionary, postings)
-        idf = math.log(collection_size / df, 10) if (df > 0) else 0
-        wtq = calc_wtq(term, query, df, collection_size)
-        for pair in docs:
-            pair_elems = pair.split(",")
-            doc = int(pair_elems[0])
-            tf = int(pair_elems[1])
-            if doc not in scores:
-                scores[doc] = 0
+        stemmed_q_term = stemmer.stem(query[i]).lower()
+        query[i] = stemmed_q_term
+        if stemmed_q_term not in query_term_freq:
+            query_term_freq[stemmed_q_term] = 0
+        query_term_freq[stemmed_q_term] += 1
 
-            tf = (1 + math.log(tf, 10))
-            wtd = tf * idf if (tf > 0) else 0
-            scores[doc] += wtd * wtq
-        for doc in scores:
-            scores[doc] = scores[doc] / document_lengths[doc]
+    # The main loop of the function. Calculates the scores
+    for term in set(query):
+        if term in dictionary:
+            docs = find_docs(term, dictionary, postings).split()
+            df = dictionary[term][0]
+            idf = math.log(collection_size / df, 10) if (df > 0) else 0
+            wtq = (1 + math.log(query_term_freq[term], 10)) * idf if (query_term_freq[term] > 0) else 0
+
+            for pair in docs:
+                pair_elems = pair.split(",")
+                doc = int(pair_elems[0])
+                tf = int(pair_elems[1])
+                if doc not in scores:
+                    scores[doc] = 0
+
+                wtd = (1 + math.log(tf, 10))
+                scores[doc] += wtd * wtq
+
+    # Normalization with the length of documents. Document length is calculated during indexing.
+    for doc in scores:
+        scores[doc] = scores[doc] / document_lengths[doc]
     return scores
-
-
-def tf_idf(tf, idf):
-    """
-    Calculate the tf-idf
-    """
-    return tf * idf if (tf > 0) else 0
-
-
-def document_freq(term, dictionary, postings):
-    return len(find_docs(term, dictionary, postings).split())
-
-
-def collection_size_calc(dictionary, postings):
-    all_docs = set()
-    try:
-        for key in dictionary:
-            row = find_docs(key, dictionary, postings)
-            for pair in row.split():
-                x = int(pair.split(",")[0])
-                all_docs.add(x)
-    except IndexError:
-        pass
-    return len(all_docs)
 
 
 def run_search(dict_file, postings_file, queries_file, results_file):
@@ -105,12 +93,13 @@ def run_search(dict_file, postings_file, queries_file, results_file):
     perform searching on the given queries file and output the results to a file
     """
     print('running search on the queries...')
-
-    dictionary = pickle.load(open(dict_file, "rb"))
+    # Load all files. Dictionary file contains both the dictionary and the lengths of documents
+    with open(dict_file, "rb") as handle:
+        dictionary = pickle.load(handle)
+        document_lengths = pickle.load(handle)
     postings = open(postings_file, "r+")
     queries = open(queries_file, "r+")
-    document_lengths = pickle.load(open("lengthdict", "rb"))
-    collection_size = collection_size_calc(dictionary, postings)
+    collection_size = len(document_lengths)
     output = []
 
     # For each query, evaluate
@@ -120,7 +109,6 @@ def run_search(dict_file, postings_file, queries_file, results_file):
 
     # Create the output and write to file
     out_file = open(results_file, "w+")
-    print("out_file: ", output)
     for line in output:
         out_str = ""
         for elem in line:

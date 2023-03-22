@@ -4,7 +4,7 @@ import sys
 import getopt
 import os
 import pickle
-from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.tokenize import word_tokenize
 from nltk.stem.porter import PorterStemmer
 
 
@@ -20,58 +20,53 @@ def build_index(in_dir, out_dict, out_postings):
     print('indexing...')
     # This is an empty method
     # Pls implement your code in below
-    # path = "./nltk_data/corpora/reuters/first"
     path = in_dir
-    # path = "./nltk_data/corpora/reuters/first"
 
     dictionary = {}
     stemmer = PorterStemmer()
     postings_lists = {}
     lengthdict = {}
 
-    # Tokenizing and stemming of words in documents
     try:
         with os.scandir(path) as it:
             for entry in it:
                 file = open(entry, 'r')
                 file_name = int(entry.name)
-                lines = file.readlines()
-                length = 0
-                """ 
-                freq = query.count(term)
-                if freq == 0:
-                    return 0
-                left = (1 + math.log(freq,10))
-                return left*right if (freq > 0) else 0
-                """
+                text = file.read()
                 terms = []
-                for line in lines:
-                    length += len(line.split())
-                    tokens = [word_tokenize(t) for t in sent_tokenize(line)]
-                    if len(tokens) != 0:
-                        for t in tokens[0]:
-                            stemmed = stemmer.stem(t).lower()
-                            terms.append(stemmed)
-                            # Add tokens to temporary postings list
-                            if stemmed in dictionary:
-                                if file_name in list(list(zip(*postings_lists[stemmed]))[0]):
-                                    postings_lists[stemmed][list(list(zip(*postings_lists[stemmed]))[0]).index(file_name)][1] += 1
-                                else:
-                                    postings_lists[stemmed].append([file_name, 1])
-                            elif stemmed not in dictionary:
-                                dictionary[stemmed] = 0
-                                postings_lists[stemmed] = [[file_name, 1]]
+
+                # Tokenize the text and iterate over them
+                w_text = word_tokenize(text)
+                if len(w_text) != 0:
+                    for t in w_text:
+                        # Perform stemming on each token
+                        stemmed = stemmer.stem(t).lower()
+                        terms.append(stemmed)
+
+                        # Add tokens to temporary postings list dictionary
+                        # postings_lists[key] contains lists of document id's followed by frequency.
+                        if stemmed in dictionary:
+                            if file_name in list(list(zip(*postings_lists[stemmed]))[0]):
+                                postings_lists[stemmed][list(list(zip(*postings_lists[stemmed]))[0]).index(file_name)][1] += 1
+                            else:
+                                postings_lists[stemmed].append([file_name, 1])
+                        elif stemmed not in dictionary:
+                            dictionary[stemmed] = 0
+                            postings_lists[stemmed] = [[file_name, 1]]
+
+                # Calculate document lengths. sqrt(w_1^2 + w_2^2 + ... + w_n^2)
                 terms_set = set(terms)
                 sq_len = 0
                 for t in terms_set:
                     c = terms.count(t)
-                    sq_len += (1 + math.log(c, 10))**2
-
+                    sq_len += ((1 + math.log(c, 10))**2)
                 lengthdict[file_name] = math.sqrt(sq_len)
+
     # Handles errors if we can't find the file.
     except IOError:
         print("No such file in path:", path)
 
+    # Create dictionary of all terms and the offset in postings for them, this initializes the offset to 0 for every term
     # This becomes the Dictionary file
     term_doc_occ = {}
     for k in sorted(postings_lists.keys()):
@@ -83,28 +78,26 @@ def build_index(in_dir, out_dict, out_postings):
         term_doc_occ[k] = tups
 
     # Building the output file postings.txt
+    # and updating the offset in the term_doc_occ dictionary
     postings_output = []
     current_pos = 0
     for k in postings_lists:
-        # How many occurrences files with word, and offset to word in postings
+        # How many files that contains the word, and offset to word in postings
         term_doc_occ[k] = (len(term_doc_occ[k]), current_pos)
         posting_str = ""
         postings = postings_lists[k]
         for i in postings:
-            str_i = str(i)
             str_i = str(i[0]) + "," + str(i[1]) + " "
             posting_str += str_i
             current_pos += len(str_i)
-            # Add skip pointers if the number of documents are more than 3
         postings_output.append(posting_str + "\n")
         current_pos += 1
 
-    # Write everything fo files.
+    # Write everything to files.
     postings_file = open(out_postings, "w+")
     postings_file.writelines(postings_output)
     with open(out_dict, "wb") as handle:
         pickle.dump(term_doc_occ, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    with open ("lengthdict", "wb") as handle:
         pickle.dump(lengthdict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     print("indexing done...")
